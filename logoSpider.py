@@ -1,7 +1,13 @@
+### Script to retrieve and save airline's logo from Seat Guru <https://www.seatguru.com/>
+### 
+### WHO         When            What
+### FCN         2019/Dec/15     Initial write
+
 from lxml import html
 import requests
 
-def read_airlines_sg():
+def read_airlines():
+    '''This function will retrieve all companies names'''
     res = {}
     col = [x for x in range(5)]
     lin = [y for y in range(100)]
@@ -15,35 +21,29 @@ def read_airlines_sg():
                 al_name = al.text
                 al_page = al.get('href')
                 res[al_name] = al_page
+    
+    # return will be a dict in the format
+    # 'name': 'url_to_information'
     return res
 
-
-
-
-def read_airlines():
+def create_wiki_lookuptable():
+    '''Some companies have diferente names in SG and Wikipedia. To solve this
+    a lookup table that exchange information with the correct 'name' for companies
+    that need. This information comes from the file 'wikipedia_lookuptable.txt'''
     airlines = {}
-    with open('airlines.txt', 'r') as f:
+    with open('wikipedia_lookuptable.txt', 'r') as f:
         content = f.readlines()
     raw = [x.strip() for x in content]
-    keys = [x for x in raw if len(x) == 1]
-    values = [x for x in raw if len(x) > 1]
-    nvalues = []
-    for v in values:
-        nvalues.append([x.strip() for x in v.split(',')])
-    values = nvalues
-
-    for k in keys:
-        group = list()
-        for v in values:
-            if v[0][0] == k:
-                al_names = []
-                for n in v:
-                    al_names.append(n.replace(' ', '_'))
-                group.append(al_names)
-        airlines[k] = group
+    # This is a series of nested list comprehension.
+    # It could be trick but also very eficient to work with lists.
+    # I do not recomend more than 4 nested loops.
+    lines = [x for x  in [x.split(',') for x  in [x for x in [x for x in raw if len(x) > 1] if x[0] != '#']] if len(x) > 1]
+    for l in lines:
+        airlines[l[0]] = [x.strip() for x in l[1:]]
     return airlines
 
 def read_data_wikipedia(air_line_names):
+    '''Function to retrieve the ICAO code for the passed airline'''
     for air_line_name in air_line_names:
         signs = ['IATA', 'ICAO', 'Callsign']
         page = requests.get('https://en.wikipedia.org/wiki/' + air_line_name)
@@ -51,32 +51,42 @@ def read_data_wikipedia(air_line_names):
         codes = [x.text.strip() for x in tree.xpath('//td[@class="nickname"]') if x.text != None]
     return [{k:v} for k,v in zip(signs, codes)]
 
-def get_sg_full_name(air_line_name):
-    # //*[@id="content"]/div[3]/div[1]/div
-    # //*[@id="content"]/div[3]/div[1]/div/ul[1]/li[5]/a
-    page = requests.get('https://www.seatguru.com/browseairlines/browseairlines.php')
+def read_images_sg(air_line_name, air_line_url, air_line_data):
+    '''This function will retrieve the image based on air line name
+    and save it to folder images.
+    TODO: Add some fail checks'''
 
-
-
-def read_image_sg(air_line_name, air_line_data):
-    # xpath = //*[@id="content"]/div/div[4]/div[1]/div[1]/img
-    # url = https://www.seatguru.com/airlines/GOL/information.php
-    page = requests.get('https://www.seatguru.com/airlines/{ALN}/information.php'.format(ALN=air_line_name))
+    aln = ''
+    if type(air_line_name) == list:
+        aln = air_line_name[0]
+    else:
+        aln = air_line_name
+    aln = aln.replace(' ', '_')
+    page = requests.get('https://www.seatguru.com' + air_line_url, allow_redirects=True)
     tree = html.fromstring(page.content)
-    img_data = tree.xpath('//*[@id="content"]/div/div[4]/div[1]/div[1]/img')
-    img_url = img_data[0].get('src')
-    if img_url.split('/')[-1] == '.jpg':
-        print(air_line_name, img_url)
+    img_data_path = tree.xpath('//*[@id="content"]/div/div[4]/div[1]/div[1]/img')
+    if len(img_data_path) > 0:
+        img_url = img_data_path[0].get('src')
+        if img_url:
+            fext = '.' + img_url.split('.')[-1]
+            ICAO_CODE = [x for x in air_line_data if 'ICAO' in x][0]['ICAO']
+            filename = './images/' + ICAO_CODE + fext
+            img_data = requests.get(img_url, allow_redirects=True)
+            open(filename, 'wb').write(img_data.content)
 
 
 if __name__ == "__main__":
-    als = read_airlines_sg()
-    for k in als:
-        print(f'{k}: {als[k]}')
-    # counter = 0
-    # for k in als:
-    #     for al in als[k]:
-    #         data = read_data_wikipedia(al)
-    #         counter += 1
-    #         # print(f'{counter:03}] Data found for {al[0]}: {data}')
-    #         read_image_sg(al[0], data)
+    airlines = read_airlines()
+    looktable = create_wiki_lookuptable()
+
+    for i, al in enumerate(airlines):
+        if al in looktable:
+            al_name = looktable[al]
+        else:
+            al_name = [al]
+        
+        print(f'{i+1:03}] Retriving information of {al_name[0]}...', end='', flush=True)
+        data = read_data_wikipedia(al_name)
+        al_url =  airlines[al]
+        read_images_sg(al_name, al_url, data)
+        print('done.', flush=True)
