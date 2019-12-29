@@ -2,9 +2,14 @@
 ### 
 ### WHO         When            What
 ### FCN         2019/Dec/15     Initial write
+### FCN         2019/Dec/29     Multi processing support (97% faster !!!)
 
 from lxml import html
 import requests
+import concurrent.futures
+import time
+
+MAX_WORKERS = 56 # Windows limited to 61, even there is more processors avalaible
 
 def read_airlines():
     '''This function will retrieve all companies names'''
@@ -49,7 +54,8 @@ def read_data_wikipedia(air_line_names):
         page = requests.get('https://en.wikipedia.org/wiki/' + air_line_name)
         tree = html.fromstring(page.content)
         codes = [x.text.strip() for x in tree.xpath('//td[@class="nickname"]') if x.text != None]
-    return [{k:v} for k,v in zip(signs, codes)]
+        result = [{k:v} for k,v in zip(signs, codes)]
+    return result
 
 def read_images_sg(air_line_name, air_line_url, air_line_data):
     '''This function will retrieve the image based on air line name
@@ -72,21 +78,44 @@ def read_images_sg(air_line_name, air_line_url, air_line_data):
             ICAO_CODE = [x for x in air_line_data if 'ICAO' in x][0]['ICAO']
             filename = './images/' + ICAO_CODE + fext
             img_data = requests.get(img_url, allow_redirects=True)
-            open(filename, 'wb').write(img_data.content)
+            with open(filename, 'wb') as f:
+                f.write(img_data.content)
 
+# Global lookuptable
+looktable = create_wiki_lookuptable()
+
+def process_airline(airline_list):
+    airline, airline_url = airline_list[0], airline_list[1]
+    if airline in looktable:
+        al_name = looktable[airline]
+    else:
+        al_name = [airline]
+    try:
+        airline_full_name = al_name[0]
+        # print(f'Retriving information of {airline_full_name}...', flush=True)
+        data = read_data_wikipedia(al_name)
+        al_url =  airline_url #airlines[al]
+        read_images_sg(al_name, al_url, data)
+        print(f'Retriving of {airline_full_name}: done.', flush=True) #{GCounter:001}] 
+    except:
+        print(f'Retriving of {airline_full_name}: ERROR!', flush=True)
 
 if __name__ == "__main__":
+    tbegin = time.time()
+    multi_process = True
     airlines = read_airlines()
-    looktable = create_wiki_lookuptable()
 
-    for i, al in enumerate(airlines):
-        if al in looktable:
-            al_name = looktable[al]
-        else:
-            al_name = [al]
-        
-        print(f'{i+1:03}] Retriving information of {al_name[0]}...', end='', flush=True)
-        data = read_data_wikipedia(al_name)
-        al_url =  airlines[al]
-        read_images_sg(al_name, al_url, data)
-        print('done.', flush=True)
+    if multi_process:
+        airline_list = [[x, airlines[x]] for x in airlines] # [airline name, airline url]
+        # print(airline_list)
+        with concurrent.futures.ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            executor.map(process_airline, airline_list)
+    else:
+        for airline in airlines:
+            # print(airlines[airline])
+            process_airline([airline, airlines[airline]]) # [airline name, airline url]
+
+
+
+    tend = time.time()
+    print(f'Total time {tend-tbegin:.2f}\'s.')
