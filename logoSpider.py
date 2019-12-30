@@ -7,9 +7,14 @@
 from lxml import html
 import requests
 import concurrent.futures
+#from concurrent.futures.process import _MAX_WINDOWS_WORKERS
+import sys
 import time
 
-MAX_WORKERS = 56 # Windows limited to 61, even there is more processors avalaible
+if sys.platform == 'win32':
+    MAX_WORKERS = concurrent.futures.process._MAX_WINDOWS_WORKERS # Windows limited to 61, even there is more processors avalaible
+else:
+    MAX_WORKERS = 128 
 
 def read_airlines():
     '''This function will retrieve all companies names'''
@@ -115,7 +120,4 @@ if __name__ == "__main__":
             # print(airlines[airline])
             process_airline([airline, airlines[airline]]) # [airline name, airline url]
 
-
-
-    tend = time.time()
-    print(f'Total time {tend-tbegin:.2f}\'s.')
+    print(f'Total time {time.time()-tbegin:.2f}\'s.')
