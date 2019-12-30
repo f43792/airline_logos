@@ -14,7 +14,7 @@ import time
 if sys.platform == 'win32':
     MAX_WORKERS = concurrent.futures.process._MAX_WINDOWS_WORKERS # Windows limited to 61, even there is more processors avalaible
 else:
-    MAX_WORKERS = 128 
+    MAX_WORKERS = 256 
 
 def read_airlines():
     '''This function will retrieve all companies names'''
