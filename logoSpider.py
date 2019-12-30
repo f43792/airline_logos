@@ -11,7 +11,7 @@ import sys
 import time
 
 if sys.platform == 'win32':
-    MAX_WORKERS = concurrent.futures.process._MAX_WINDOWS_WORKERS # Windows limited to 61, even there is more processors avalaible
+    MAX_WORKERS = 60 # Windows limited to 60, even if there is more processors avalaible...
 else:
     MAX_WORKERS = 256 
 
