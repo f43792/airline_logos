@@ -2,7 +2,7 @@
 ### 
 ### WHO         When            What
 ### FCN         2019/Dec/15     Initial write
-### FCN         2019/Dec/29     Multi processing support (97% faster !!!)
+### FCN         2019/Dec/29     Multi processing support (97% faster !!!. Linux, 99%)
 
 from lxml import html
 import requests
