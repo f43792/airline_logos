@@ -7,7 +7,6 @@
 from lxml import html
 import requests
 import concurrent.futures
-#from concurrent.futures.process import _MAX_WINDOWS_WORKERS
 import sys
 import time
 
@@ -90,6 +89,7 @@ def read_images_sg(air_line_name, air_line_url, air_line_data):
 looktable = create_wiki_lookuptable()
 
 def process_airline(airline_list):
+    '''Function used for synchronously or synchronously calls.'''
     airline, airline_url = airline_list[0], airline_list[1]
     if airline in looktable:
         al_name = looktable[airline]
@@ -97,11 +97,10 @@ def process_airline(airline_list):
         al_name = [airline]
     try:
         airline_full_name = al_name[0]
-        # print(f'Retriving information of {airline_full_name}...', flush=True)
         data = read_data_wikipedia(al_name)
         al_url =  airline_url #airlines[al]
         read_images_sg(al_name, al_url, data)
-        print(f'Retriving of {airline_full_name}: done.', flush=True) #{GCounter:001}] 
+        print(f'Retriving of {airline_full_name}: done.', flush=True)
     except:
         print(f'Retriving of {airline_full_name}: ERROR!', flush=True)
 
@@ -112,12 +111,10 @@ if __name__ == "__main__":
 
     if multi_process:
         airline_list = [[x, airlines[x]] for x in airlines] # [airline name, airline url]
-        # print(airline_list)
         with concurrent.futures.ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
             executor.map(process_airline, airline_list)
     else:
         for airline in airlines:
-            # print(airlines[airline])
             process_airline([airline, airlines[airline]]) # [airline name, airline url]
 
     print(f'Total time {time.time()-tbegin:.2f}\'s.')
